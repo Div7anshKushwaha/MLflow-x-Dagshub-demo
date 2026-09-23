@@ -7,10 +7,8 @@ import pandas as pd
 
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from sklearn.tree import (
-    DecisionTreeClassifier,
-    plot_tree
-)
+from sklearn.ensemble import RandomForestClassifier
+
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -22,12 +20,22 @@ from sklearn.metrics import (
 )
 
 import dagshub
-dagshub.init(repo_owner='Div7anshKushwaha', repo_name='MLflow-x-Dagshub-demo', mlflow=True)
 
+
+# ============================================================
+# DAGSHUB + MLFLOW
+# ============================================================
+
+dagshub.init(
+    repo_owner="Div7anshKushwaha",
+    repo_name="MLflow-x-Dagshub-demo",
+    mlflow=True
+)
 
 mlflow.set_tracking_uri(
     "https://dagshub.com/Div7anshKushwaha/MLflow-x-Dagshub-demo.mlflow"
 )
+
 
 # ============================================================
 # 1. LOAD DATASET
@@ -69,15 +77,18 @@ X_train, X_test, y_train, y_test = train_test_split(
 # 3. MODEL PARAMETERS
 # ============================================================
 
-MAX_DEPTH = 4
-MIN_SAMPLES_SPLIT = 2
+N_ESTIMATORS = 100
+MAX_DEPTH = 5
+MAX_FEATURES = 2
 
 
 # ============================================================
-# 4. MLflow EXPERIMENT
+# 4. MLFLOW EXPERIMENT
 # ============================================================
 
-mlflow.set_experiment("Iris Decision Tree full tracking")
+mlflow.set_experiment(
+    "Iris Random Forest Full Tracking"
+)
 
 
 # ============================================================
@@ -85,44 +96,84 @@ mlflow.set_experiment("Iris Decision Tree full tracking")
 # ============================================================
 
 with mlflow.start_run(
-    run_name="Decision Tree - Full Tracking"
+    run_name="Random Forest - Full Tracking"
 ):
 
     # --------------------------------------------------------
     # TAGS
     # --------------------------------------------------------
 
-    mlflow.set_tag("model_type", "Decision Tree")
-    mlflow.set_tag("dataset", "Iris")
-    mlflow.set_tag("framework", "scikit-learn")
-    mlflow.set_tag("task", "multiclass classification")
-    mlflow.set_tag("developer", "Divyansh")
+    mlflow.set_tag(
+        "model_type",
+        "Random Forest"
+    )
+
+    mlflow.set_tag(
+        "dataset",
+        "Iris"
+    )
+
+    mlflow.set_tag(
+        "framework",
+        "scikit-learn"
+    )
+
+    mlflow.set_tag(
+        "task",
+        "multiclass classification"
+    )
+
+    mlflow.set_tag(
+        "developer",
+        "Divyansh"
+    )
 
 
     # --------------------------------------------------------
     # PARAMETERS
     # --------------------------------------------------------
 
-    mlflow.log_param("max_depth", MAX_DEPTH)
     mlflow.log_param(
-        "min_samples_split",
-        MIN_SAMPLES_SPLIT
+        "n_estimators",
+        N_ESTIMATORS
     )
-    mlflow.log_param("test_size", TEST_SIZE)
-    mlflow.log_param("random_state", RANDOM_STATE)
+
+    mlflow.log_param(
+        "max_depth",
+        MAX_DEPTH
+    )
+
+    mlflow.log_param(
+        "max_features",
+        MAX_FEATURES
+    )
+
+    mlflow.log_param(
+        "test_size",
+        TEST_SIZE
+    )
+
+    mlflow.log_param(
+        "random_state",
+        RANDOM_STATE
+    )
 
 
     # --------------------------------------------------------
     # MODEL
     # --------------------------------------------------------
 
-    model = DecisionTreeClassifier(
+    model = RandomForestClassifier(
+        n_estimators=N_ESTIMATORS,
         max_depth=MAX_DEPTH,
-        min_samples_split=MIN_SAMPLES_SPLIT,
+        max_features=MAX_FEATURES,
         random_state=RANDOM_STATE
     )
 
-    model.fit(X_train, y_train)
+    model.fit(
+        X_train,
+        y_train
+    )
 
 
     # --------------------------------------------------------
@@ -136,7 +187,10 @@ with mlflow.start_run(
     # 6. METRICS
     # ========================================================
 
-    accuracy = accuracy_score(y_test, y_pred)
+    accuracy = accuracy_score(
+        y_test,
+        y_pred
+    )
 
     precision = precision_score(
         y_test,
@@ -157,17 +211,35 @@ with mlflow.start_run(
     )
 
 
-    mlflow.log_metric("accuracy", accuracy)
-    mlflow.log_metric("precision", precision)
-    mlflow.log_metric("recall", recall)
-    mlflow.log_metric("f1_score", f1)
+    mlflow.log_metric(
+        "accuracy",
+        accuracy
+    )
+
+    mlflow.log_metric(
+        "precision",
+        precision
+    )
+
+    mlflow.log_metric(
+        "recall",
+        recall
+    )
+
+    mlflow.log_metric(
+        "f1_score",
+        f1
+    )
 
 
     # ========================================================
     # 7. CONFUSION MATRIX
     # ========================================================
 
-    cm = confusion_matrix(y_test, y_pred)
+    cm = confusion_matrix(
+        y_test,
+        y_pred
+    )
 
     disp = ConfusionMatrixDisplay(
         confusion_matrix=cm,
@@ -176,10 +248,16 @@ with mlflow.start_run(
 
     disp.plot()
 
-    plt.title("Iris Decision Tree - Confusion Matrix")
+    plt.title(
+        "Iris Random Forest - Confusion Matrix"
+    )
+
     plt.tight_layout()
 
-    plt.savefig("confusion_matrix.png")
+    plt.savefig(
+        "confusion_matrix.png"
+    )
+
     plt.close()
 
 
@@ -187,45 +265,42 @@ with mlflow.start_run(
     # 8. FEATURE IMPORTANCE PLOT
     # ========================================================
 
-    plt.figure(figsize=(8, 5))
+    plt.figure(
+        figsize=(8, 5)
+    )
 
     plt.bar(
         feature_names,
         model.feature_importances_
     )
 
-    plt.xlabel("Features")
-    plt.ylabel("Importance")
-    plt.title("Decision Tree Feature Importance")
-
-    plt.xticks(rotation=30)
-    plt.tight_layout()
-
-    plt.savefig("feature_importance.png")
-    plt.close()
-
-
-    # ========================================================
-    # 9. DECISION TREE VISUALIZATION
-    # ========================================================
-
-    plt.figure(figsize=(16, 10))
-
-    plot_tree(
-        model,
-        feature_names=feature_names,
-        class_names=class_names,
-        filled=True
+    plt.xlabel(
+        "Features"
     )
 
-    plt.title("Iris Decision Tree")
+    plt.ylabel(
+        "Importance"
+    )
 
-    plt.savefig("decision_tree.png")
+    plt.title(
+        "Random Forest Feature Importance"
+    )
+
+    plt.xticks(
+        rotation=30
+    )
+
+    plt.tight_layout()
+
+    plt.savefig(
+        "feature_importance.png"
+    )
+
     plt.close()
 
 
     # ========================================================
-    # 10. CLASSIFICATION REPORT
+    # 9. CLASSIFICATION REPORT
     # ========================================================
 
     report = classification_report(
@@ -234,12 +309,16 @@ with mlflow.start_run(
         target_names=class_names
     )
 
-    with open("classification_report.txt", "w") as f:
+    with open(
+        "classification_report.txt",
+        "w"
+    ) as f:
+
         f.write(report)
 
 
     # ========================================================
-    # 11. METRICS JSON
+    # 10. METRICS JSON
     # ========================================================
 
     metrics = {
@@ -249,38 +328,55 @@ with mlflow.start_run(
         "f1_score": f1
     }
 
-    with open("metrics.json", "w") as f:
-        json.dump(metrics, f, indent=4)
+    with open(
+        "metrics.json",
+        "w"
+    ) as f:
+
+        json.dump(
+            metrics,
+            f,
+            indent=4
+        )
 
 
     # ========================================================
-    # 12. LOG ARTIFACTS
+    # 11. LOG ARTIFACTS
     # ========================================================
+
+    # Dataset
 
     mlflow.log_artifact(
         "iris_dataset.csv",
         artifact_path="dataset"
     )
 
+
+    # Confusion matrix
+
     mlflow.log_artifact(
         "confusion_matrix.png",
         artifact_path="plots"
     )
+
+
+    # Feature importance
 
     mlflow.log_artifact(
         "feature_importance.png",
         artifact_path="plots"
     )
 
-    mlflow.log_artifact(
-        "decision_tree.png",
-        artifact_path="plots"
-    )
+
+    # Classification report
 
     mlflow.log_artifact(
         "classification_report.txt",
         artifact_path="reports"
     )
+
+
+    # Metrics JSON
 
     mlflow.log_artifact(
         "metrics.json",
@@ -289,12 +385,12 @@ with mlflow.start_run(
 
 
     # ========================================================
-    # 13. LOG MODEL
+    # 12. LOG MODEL
     # ========================================================
 
     mlflow.sklearn.log_model(
         model,
-        name="decision_tree_model",
+        name="random_forest_model",
         skops_trusted_types=[
             "sklearn.tree._tree.Tree"
         ]
@@ -302,21 +398,46 @@ with mlflow.start_run(
 
 
     # ========================================================
-    # 14. PRINT RESULTS
+    # 13. PRINT RESULTS
     # ========================================================
 
     print("\nModel Parameters")
     print("----------------")
-    print(f"max_depth         : {MAX_DEPTH}")
-    print(f"min_samples_split : {MIN_SAMPLES_SPLIT}")
-    print(f"test_size         : {TEST_SIZE}")
-    print(f"random_state      : {RANDOM_STATE}")
+    print(
+        f"n_estimators : {N_ESTIMATORS}"
+    )
+    print(
+        f"max_depth    : {MAX_DEPTH}"
+    )
+    print(
+        f"max_features : {MAX_FEATURES}"
+    )
+    print(
+        f"test_size    : {TEST_SIZE}"
+    )
+    print(
+        f"random_state : {RANDOM_STATE}"
+    )
 
     print("\nModel Performance")
     print("-----------------")
-    print(f"Accuracy  : {accuracy:.4f}")
-    print(f"Precision : {precision:.4f}")
-    print(f"Recall    : {recall:.4f}")
-    print(f"F1 Score  : {f1:.4f}")
 
-    print("\nMLflow Run completed successfully.")
+    print(
+        f"Accuracy  : {accuracy:.4f}"
+    )
+
+    print(
+        f"Precision : {precision:.4f}"
+    )
+
+    print(
+        f"Recall    : {recall:.4f}"
+    )
+
+    print(
+        f"F1 Score  : {f1:.4f}"
+    )
+
+    print(
+        "\nMLflow Run completed successfully."
+    )
