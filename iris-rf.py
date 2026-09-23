@@ -4,6 +4,7 @@ import mlflow.sklearn
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import dagshub
 
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
@@ -18,8 +19,6 @@ from sklearn.metrics import (
     ConfusionMatrixDisplay,
     classification_report
 )
-
-import dagshub
 
 
 # ============================================================
@@ -50,13 +49,6 @@ feature_names = iris.feature_names
 class_names = iris.target_names
 
 
-# Save dataset as CSV artifact
-df = pd.DataFrame(X, columns=feature_names)
-df["target"] = y
-
-df.to_csv("iris_dataset.csv", index=False)
-
-
 # ============================================================
 # 2. TRAIN-TEST SPLIT
 # ============================================================
@@ -74,7 +66,56 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 
 # ============================================================
-# 3. MODEL PARAMETERS
+# 3. CREATE TRAIN / TEST DATASETS
+# ============================================================
+
+train_df = pd.DataFrame(
+    X_train,
+    columns=feature_names
+)
+
+train_df["target"] = y_train
+
+
+test_df = pd.DataFrame(
+    X_test,
+    columns=feature_names
+)
+
+test_df["target"] = y_test
+
+
+# Save datasets separately
+train_df.to_csv(
+    "train_dataset.csv",
+    index=False
+)
+
+test_df.to_csv(
+    "test_dataset.csv",
+    index=False
+)
+
+
+# ============================================================
+# 4. CREATE MLFLOW DATASETS
+# ============================================================
+
+train_dataset = mlflow.data.from_pandas(
+    train_df,
+    source="sklearn.datasets.load_iris",
+    name="iris_train_dataset"
+)
+
+test_dataset = mlflow.data.from_pandas(
+    test_df,
+    source="sklearn.datasets.load_iris",
+    name="iris_test_dataset"
+)
+
+
+# ============================================================
+# 5. MODEL PARAMETERS
 # ============================================================
 
 N_ESTIMATORS = 100
@@ -83,7 +124,7 @@ MAX_FEATURES = 2
 
 
 # ============================================================
-# 4. MLFLOW EXPERIMENT
+# 6. MLFLOW EXPERIMENT
 # ============================================================
 
 mlflow.set_experiment(
@@ -92,16 +133,16 @@ mlflow.set_experiment(
 
 
 # ============================================================
-# 5. START RUN
+# 7. START RUN
 # ============================================================
 
 with mlflow.start_run(
     run_name="Random Forest - Full Tracking"
 ):
 
-    # --------------------------------------------------------
+    # ========================================================
     # TAGS
-    # --------------------------------------------------------
+    # ========================================================
 
     mlflow.set_tag(
         "model_type",
@@ -129,9 +170,9 @@ with mlflow.start_run(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # PARAMETERS
-    # --------------------------------------------------------
+    # ========================================================
 
     mlflow.log_param(
         "n_estimators",
@@ -158,10 +199,36 @@ with mlflow.start_run(
         RANDOM_STATE
     )
 
+    # Dataset sizes
+    mlflow.log_param(
+        "train_samples",
+        len(train_df)
+    )
 
-    # --------------------------------------------------------
+    mlflow.log_param(
+        "test_samples",
+        len(test_df)
+    )
+
+
+    # ========================================================
+    # DATASET TRACKING
+    # ========================================================
+
+    mlflow.log_input(
+        train_dataset,
+        context="training"
+    )
+
+    mlflow.log_input(
+        test_dataset,
+        context="testing"
+    )
+
+
+    # ========================================================
     # MODEL
-    # --------------------------------------------------------
+    # ========================================================
 
     model = RandomForestClassifier(
         n_estimators=N_ESTIMATORS,
@@ -176,15 +243,17 @@ with mlflow.start_run(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # PREDICTIONS
-    # --------------------------------------------------------
+    # ========================================================
 
-    y_pred = model.predict(X_test)
+    y_pred = model.predict(
+        X_test
+    )
 
 
     # ========================================================
-    # 6. METRICS
+    # METRICS
     # ========================================================
 
     accuracy = accuracy_score(
@@ -233,7 +302,7 @@ with mlflow.start_run(
 
 
     # ========================================================
-    # 7. CONFUSION MATRIX
+    # CONFUSION MATRIX
     # ========================================================
 
     cm = confusion_matrix(
@@ -262,7 +331,7 @@ with mlflow.start_run(
 
 
     # ========================================================
-    # 8. FEATURE IMPORTANCE PLOT
+    # FEATURE IMPORTANCE
     # ========================================================
 
     plt.figure(
@@ -300,7 +369,7 @@ with mlflow.start_run(
 
 
     # ========================================================
-    # 9. CLASSIFICATION REPORT
+    # CLASSIFICATION REPORT
     # ========================================================
 
     report = classification_report(
@@ -318,7 +387,7 @@ with mlflow.start_run(
 
 
     # ========================================================
-    # 10. METRICS JSON
+    # METRICS JSON
     # ========================================================
 
     metrics = {
@@ -341,26 +410,28 @@ with mlflow.start_run(
 
 
     # ========================================================
-    # 11. LOG ARTIFACTS
+    # LOG DATASETS
     # ========================================================
 
-    # Dataset
+    mlflow.log_artifact(
+        "train_dataset.csv",
+        artifact_path="dataset/train"
+    )
 
     mlflow.log_artifact(
-        "iris_dataset.csv",
-        artifact_path="dataset"
+        "test_dataset.csv",
+        artifact_path="dataset/test"
     )
 
 
-    # Confusion matrix
+    # ========================================================
+    # LOG PLOTS
+    # ========================================================
 
     mlflow.log_artifact(
         "confusion_matrix.png",
         artifact_path="plots"
     )
-
-
-    # Feature importance
 
     mlflow.log_artifact(
         "feature_importance.png",
@@ -368,15 +439,14 @@ with mlflow.start_run(
     )
 
 
-    # Classification report
+    # ========================================================
+    # LOG REPORTS
+    # ========================================================
 
     mlflow.log_artifact(
         "classification_report.txt",
         artifact_path="reports"
     )
-
-
-    # Metrics JSON
 
     mlflow.log_artifact(
         "metrics.json",
@@ -385,7 +455,7 @@ with mlflow.start_run(
 
 
     # ========================================================
-    # 12. LOG MODEL
+    # LOG MODEL
     # ========================================================
 
     mlflow.sklearn.log_model(
@@ -398,23 +468,39 @@ with mlflow.start_run(
 
 
     # ========================================================
-    # 13. PRINT RESULTS
+    # PRINT RESULTS
     # ========================================================
+
+    print("\nDataset Information")
+    print("-------------------")
+
+    print(
+        f"Training samples : {len(train_df)}"
+    )
+
+    print(
+        f"Testing samples  : {len(test_df)}"
+    )
 
     print("\nModel Parameters")
     print("----------------")
+
     print(
         f"n_estimators : {N_ESTIMATORS}"
     )
+
     print(
         f"max_depth    : {MAX_DEPTH}"
     )
+
     print(
         f"max_features : {MAX_FEATURES}"
     )
+
     print(
         f"test_size    : {TEST_SIZE}"
     )
+
     print(
         f"random_state : {RANDOM_STATE}"
     )
